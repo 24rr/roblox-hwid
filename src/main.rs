@@ -29,6 +29,75 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     setup_main_config()?;
     
+    
+    loop {
+        match show_menu()? {
+            1 => spoof_all()?,
+            2 => {
+                println!("\n[-] Running System UUID Spoofer");
+                match run_system_uuid_spoofer() {
+                    Ok(_) => println!("[+] System UUID Spoofing Successful"),
+                    Err(e) => println!("[!] System UUID Spoofing Failed: {}", e),
+                }
+                wait_to_continue()?;
+            },
+            3 => {
+                println!("\n[-] Running Memory Devices Spoofer");
+                match run_memory_devices_spoofer() {
+                    Ok(_) => println!("[+] Memory Devices Spoofing Successful"),
+                    Err(e) => println!("[!] Memory Devices Spoofing Failed: {}", e),
+                }
+                wait_to_continue()?;
+            },
+            4 => {
+                println!("\n[-] Running Monitor EDID Spoofer");
+                match run_monitor_edid_spoofer() {
+                    Ok(_) => println!("[+] Monitor EDID Spoofing Successful"),
+                    Err(e) => println!("[!] Monitor EDID Spoofing Failed: {}", e),
+                }
+                wait_to_continue()?;
+            },
+            5 => {
+                println!("\n[-] Running System Registry Spoofer");
+                match run_system_reg_spoofer() {
+                    Ok(_) => println!("[+] System Registry Spoofing Successful"),
+                    Err(e) => println!("[!] System Registry Spoofing Failed: {}", e),
+                }
+                wait_to_continue()?;
+            },
+            6 => {
+                println!("\nExiting. Hardware ID Spoofer closed.");
+                break;
+            },
+            _ => println!("Invalid option. Please enter a number between 1 and 6."),
+        }
+    }
+    
+    Ok(())
+}
+
+fn show_menu() -> Result<u32, Box<dyn Error>> {
+    println!("\n==== Hardware ID Spoofer Menu ====");
+    println!("1. Spoof All Hardware IDs");
+    println!("2. Spoof System UUID only");
+    println!("3. Spoof Memory Devices only");
+    println!("4. Spoof Monitor EDID only");
+    println!("5. Spoof System Registry only");
+    println!("6. Exit");
+    
+    print!("\nEnter your choice (1-6): ");
+    io::stdout().flush()?;
+    
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    
+    match input.trim().parse() {
+        Ok(num) => Ok(num),
+        Err(_) => Ok(0), 
+    }
+}
+
+fn spoof_all() -> Result<(), Box<dyn Error>> {
     println!("\n[+] Beginning HWID spoofing sequence...");
     
     
@@ -55,7 +124,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("[*] Roblox will now detect different hardware identifiers on this machine.");
     println!("[*] Remember that spoofed IDs persist across reboots but may reset with Windows updates.");
     
-    wait_for_exit();
+    wait_to_continue()?;
     Ok(())
 }
 
@@ -75,6 +144,16 @@ fn setup_main_config() -> Result<(), Box<dyn Error>> {
         config_key.set_value("ConfigVersion", &1u32)?;
         config_key.set_value("SetupDate", &chrono::Local::now().to_rfc3339())?;
     }
+    
+    Ok(())
+}
+
+fn wait_to_continue() -> Result<(), Box<dyn Error>> {
+    print!("\nPress Enter to continue...");
+    io::stdout().flush()?;
+    
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
     
     Ok(())
 }
@@ -122,7 +201,7 @@ fn wait_for_exit() {
 fn print_banner() {
     println!("╔═════════════════════════════════════════════════╗");
     println!("║                                                 ║");
-    println!("║  Hardware ID Spoofer Tool for Windows           ║");
+    println!("║  Hardware ID Spoofer Tool for Roblox            ║");
     println!("║  Version 0.1.0                                  ║");
     println!("║                                                 ║");
     println!("║  [Security Notice]                              ║");
