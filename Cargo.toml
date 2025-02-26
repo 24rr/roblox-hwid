@@ -10,6 +10,7 @@ uuid = { version = "1.4", features = ["v4"] }
 rand = "0.8"
 winreg = "0.11"
 winapi = { version = "0.3", features = ["winnt", "processthreadsapi", "securitybaseapi", "handleapi", "minwindef", "winreg", "winbase"] }
+chrono = "0.4.39"
 
 [profile.release]
 opt-level = 3

@@ -2,6 +2,7 @@ use std::error::Error;
 use rand::Rng;
 use winreg::enums::*;
 use winreg::RegKey;
+use std::iter;
 
 pub struct MonitorEdidSpoofer;
 
@@ -10,150 +11,118 @@ impl MonitorEdidSpoofer {
         println!("Spoofing Monitor EDID Information...");
         
         
-        let displays = Self::find_display_devices()?;
+        let display_paths = Self::find_display_devices()?;
         
-        if displays.is_empty() {
-            println!("No display devices found in registry");
-            return Ok(());
+        
+        let mut modified_count = 0;
+        
+        
+        for display_path in display_paths {
+            if let Ok(()) = Self::modify_edid_for_display(&display_path) {
+                modified_count += 1;
+            }
         }
         
         
-        for display_path in displays {
-            Self::modify_edid_for_display(&display_path)?;
-        }
-        
-        
-        Self::create_edid_intercept_config()?;
+        Self::create_edid_intercept_config(modified_count)?;
         
         println!("Monitor EDID spoofing complete");
         Ok(())
     }
     
     fn find_display_devices() -> Result<Vec<String>, Box<dyn Error>> {
-        println!("Finding display devices in registry...");
-        
         let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-        let display_enum = hklm.open_subkey_with_flags(r"SYSTEM\CurrentControlSet\Enum\DISPLAY", KEY_READ)?;
+        let display_path = r"SYSTEM\CurrentControlSet\Enum\DISPLAY";
+        let display_key = hklm.open_subkey(display_path)?;
         
-        let mut display_paths = Vec::new();
+        let mut result = Vec::new();
         
         
-        for device_type in display_enum.enum_keys().filter_map(Result::ok) {
-            let device_type_key = display_enum.open_subkey_with_flags(&device_type, KEY_READ)?;
+        for manufacturer in display_key.enum_keys().map(|x| x.unwrap()) {
+            let manufacturer_key = display_key.open_subkey(&manufacturer)?;
             
             
-            for instance in device_type_key.enum_keys().filter_map(Result::ok) {
-                let path = format!(r"SYSTEM\CurrentControlSet\Enum\DISPLAY\{}\{}", device_type, instance);
-                display_paths.push(path);
+            for instance in manufacturer_key.enum_keys().map(|x| x.unwrap()) {
+                let full_path = format!("{}\\{}\\{}", display_path, manufacturer, instance);
+                result.push(full_path);
             }
         }
         
-        println!("Found {} display devices", display_paths.len());
-        Ok(display_paths)
+        println!("Found {} display devices", result.len());
+        Ok(result)
     }
     
     fn modify_edid_for_display(display_path: &str) -> Result<(), Box<dyn Error>> {
-        println!("Modifying EDID for display at path: {}", display_path);
-        
         let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-        let display_key = match hklm.open_subkey_with_flags(display_path, KEY_READ | KEY_WRITE) {
+        
+        
+        let params_path = format!("{}\\Device Parameters", display_path);
+        let params_key = match hklm.open_subkey_with_flags(&params_path, KEY_READ | KEY_WRITE) {
             Ok(key) => key,
-            Err(e) => {
-                println!("  Error accessing display key: {}", e);
-                return Ok(());
-            }
+            Err(_) => return Err("No Device Parameters key".into()),
         };
         
         
-        let device_params_key = match display_key.open_subkey_with_flags("Device Parameters", KEY_READ | KEY_WRITE) {
-            Ok(key) => key,
-            Err(e) => {
-                println!("  No Device Parameters key found: {}", e);
-                return Ok(());
-            }
-        };
-        
-        
-        let edid_data: Vec<u8> = match device_params_key.get_raw_value("EDID") {
+        let edid: Vec<u8> = match params_key.get_raw_value("EDID") {
             Ok(value) => value.bytes,
-            Err(e) => {
-                println!("  No EDID data found: {}", e);
-                return Ok(());
-            }
+            Err(_) => return Err("No EDID value".into()),
         };
         
-        if edid_data.len() < 128 {
-            println!("  EDID data is too short: {} bytes", edid_data.len());
-            return Ok(());
+        
+        if edid.len() < 128 {
+            return Err("EDID too short".into());
         }
         
         
-        
-        let mut new_edid = edid_data.clone();
-        
-        
-        let new_serial: Vec<u8> = (0..4).map(|_| rand::thread_rng().gen::<u8>()).collect();
+        let mut new_edid = edid.clone();
         
         
-        new_edid[0x0C] = new_serial[0];
-        new_edid[0x0D] = new_serial[1];
-        new_edid[0x0E] = new_serial[2];
-        new_edid[0x0F] = new_serial[3];
+        let mut rng = rand::thread_rng();
+        let mut new_serial = [0u8; 4];
+        rng.fill(&mut new_serial);
+        
+        
+        new_edid[12] = new_serial[0];
+        new_edid[13] = new_serial[1];
+        new_edid[14] = new_serial[2];
+        new_edid[15] = new_serial[3];
+        
         
         
         let sum = new_edid[0..127].iter().map(|&x| x as u32).sum::<u32>() % 256;
         let checksum = if sum == 0 { 0 } else { (256 - sum) as u8 };
         new_edid[127] = checksum;
         
-        println!("  Generated new EDID with serial: {:02X}{:02X}{:02X}{:02X}, checksum: {:02X}",
-            new_serial[0], new_serial[1], new_serial[2], new_serial[3], checksum);
         
-        
-        device_params_key.set_raw_value("EDID", &winreg::RegValue {
+        let reg_value = winreg::RegValue {
             bytes: new_edid,
             vtype: REG_BINARY,
-        })?;
+        };
+        params_key.set_raw_value("EDID", &reg_value)?;
         
         
-        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let (spoof_key, _) = hkcu.create_subkey(r"Software\RobloxHWIDSpoofer\MonitorEDID")?;
+        println!("Modified display EDID at {} - New serial: {:02X}{:02X}{:02X}{:02X}, Checksum: {:02X}", 
+            display_path, new_serial[0], new_serial[1], new_serial[2], new_serial[3], checksum);
         
-        
-        let display_count: u32 = spoof_key.get_value("DisplayCount").unwrap_or(0);
-        spoof_key.set_value(&format!("DisplayPath{}", display_count), &display_path)?;
-        
-        
-        spoof_key.set_raw_value(&format!("OriginalSerial{}", display_count), &winreg::RegValue {
-            bytes: edid_data[0x0C..=0x0F].to_vec(),
-            vtype: REG_BINARY,
-        })?;
-        
-        spoof_key.set_raw_value(&format!("NewSerial{}", display_count), &winreg::RegValue {
-            bytes: new_serial.clone(),
-            vtype: REG_BINARY,
-        })?;
-        
-        
-        spoof_key.set_value("DisplayCount", &(display_count + 1))?;
-        
-        println!("  Successfully modified EDID for display at path: {}", display_path);
         Ok(())
     }
     
-    fn create_edid_intercept_config() -> Result<(), Box<dyn Error>> {
-        println!("Creating EDID interception configuration...");
-        
-        
+    fn create_edid_intercept_config(modified_count: usize) -> Result<(), Box<dyn Error>> {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         
         
-        let (key, _) = hkcu.create_subkey(r"Software\RobloxHWIDSpoofer")?;
+        let (edid_key, _) = hkcu.create_subkey(r"Software\Microsoft\DeviceManagement\Display")?;
         
         
-        key.set_value("HyperionEDIDPrefix", &"0LaUoAv5C6K5n1JciQzY")?;
+        edid_key.set_value("ModifiedDisplayCount", &(modified_count as u32))?;
+        edid_key.set_value("LastModifiedTime", &chrono::Local::now().to_rfc3339())?;
         
         
-        key.set_value("EnableEDIDSpoofing", &1u32)?;
+        edid_key.set_value("DisplayIdentifierPrefix", &"D7t5Rq2Z9sXw3F6yPl4J")?;
+        
+        
+        let parent_key = hkcu.open_subkey_with_flags(r"Software\Microsoft\DeviceManagement\SecurityProviders", KEY_WRITE)?;
+        parent_key.set_value("EnableDisplayProtection", &1u32)?;
         
         println!("EDID interception configuration created successfully");
         Ok(())
