@@ -1,32 +1,11 @@
 use std::error::Error;
-use std::fmt;
-use std::ptr::null_mut;
-use std::ffi::OsString;
-use std::os::windows::ffi::OsStringExt;
 use rand::Rng;
 use rand::seq::IteratorRandom;
-use winapi::um::winnt::{HANDLE, TOKEN_QUERY, TOKEN_USER, PSID, SID_NAME_USE};
-use winapi::um::securitybaseapi::GetTokenInformation;
+use winapi::um::winnt::PSID;
 use winapi::um::winbase::LookupAccountSidW;
-use winapi::um::processthreadsapi::{GetCurrentProcess, OpenProcessToken};
-use winapi::um::handleapi::CloseHandle;
-use winapi::shared::minwindef::{DWORD, BYTE};
 use winreg::enums::*;
 use winreg::RegKey;
-use winapi::shared::winerror::ERROR_INSUFFICIENT_BUFFER;
-use std::iter::repeat;
 use std::ptr;
-
-#[derive(Debug)]
-struct CustomError(String);
-
-impl fmt::Display for CustomError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Error for CustomError {}
 
 pub struct SystemRegSpoofer;
 
@@ -62,11 +41,11 @@ impl SystemRegSpoofer {
     
     fn extract_sid_from_key(key: &RegKey) -> Result<String, Box<dyn Error>> {
         
-        let handle = key.raw_handle();
+        let _handle = key.raw_handle();
         
         unsafe {
             
-            let mut sid_ptr: PSID = ptr::null_mut();
+            let sid_ptr: PSID = ptr::null_mut();
             let mut sid_size: u32 = 0;
             let mut domain_name_size: u32 = 0;
             let mut name_use: u32 = 0;

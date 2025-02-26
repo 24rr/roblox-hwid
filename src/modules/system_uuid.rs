@@ -2,8 +2,6 @@ use std::error::Error;
 use uuid::Uuid;
 use winreg::enums::*;
 use winreg::RegKey;
-use std::ffi::OsString;
-use std::os::windows::ffi::OsStringExt;
 
 pub struct SystemUuidSpoofer;
 

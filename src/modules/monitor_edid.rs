@@ -2,7 +2,6 @@ use std::error::Error;
 use rand::Rng;
 use winreg::enums::*;
 use winreg::RegKey;
-use std::iter;
 
 pub struct MonitorEdidSpoofer;
 
