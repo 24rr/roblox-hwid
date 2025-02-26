@@ -1,6 +1,6 @@
 [package]
 name = "roblox-hwid-spoofer"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["bufferization"]
 description = "A tool to spoof hardware identifiers used by Roblox Hyperion"
@@ -11,6 +11,7 @@ rand = "0.8"
 winreg = "0.11"
 winapi = { version = "0.3", features = ["winnt", "processthreadsapi", "securitybaseapi", "handleapi", "minwindef", "winreg", "winbase"] }
 chrono = "0.4.39"
+anyhow = "1.0"
 
 [profile.release]
 opt-level = 3
