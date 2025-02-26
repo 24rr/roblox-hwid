@@ -53,15 +53,19 @@ cargo build --release
 ## Showcase
 
 1. System UUID
+
 ![](assets/system-uuid.png)
 
 2. Memory Devices
+
 ![](assets/memory-device.png)
 
 3. Monitor EDID
+
 ![](assets/monitor-edid.png)
 
 4. SystemReg
+
 ![](assets/system-reg.png)
 
 ## Usage

@@ -31,23 +31,23 @@ impl SystemRegSpoofer {
     pub fn spoof() -> Result<(), Box<dyn Error>> {
         println!("Spoofing Roblox-specific SystemReg Registry Value...");
         
-        // Get the current user's SID
+        
         let sid = Self::get_current_user_sid()?;
         println!("Current user SID: {}", sid);
         
-        // Target the specific registry path with null terminator
+        
         let registry_path = format!(r"{}\System\CurrentControlSet\Control", sid);
         
-        // Create spoofed value for SystemReg
+        
         let spoofed_data = Self::generate_random_data();
         
-        // Back up the original value if it exists
+        
         Self::backup_original_value(&registry_path)?;
         
-        // Set the new spoofed value
+        
         Self::set_special_registry_value(&registry_path, &spoofed_data)?;
         
-        // Create interception configuration
+        
         Self::create_intercept_config(&sid, &spoofed_data)?;
         
         println!("SystemReg spoofing complete");
@@ -55,7 +55,7 @@ impl SystemRegSpoofer {
     }
     
     fn get_current_user_sid() -> Result<String, Box<dyn Error>> {
-        // Open handle to current process token
+        
         let mut token_handle: HANDLE = null_mut();
         unsafe {
             if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token_handle) == 0 {
@@ -63,7 +63,7 @@ impl SystemRegSpoofer {
             }
         }
         
-        // First call to get buffer size
+        
         let mut token_info_len: DWORD = 0;
         unsafe {
             GetTokenInformation(
@@ -75,7 +75,7 @@ impl SystemRegSpoofer {
             );
         }
         
-        // Allocate buffer and get token information
+        
         let mut buffer: Vec<BYTE> = vec![0; token_info_len as usize];
         let success = unsafe {
             GetTokenInformation(
@@ -92,14 +92,14 @@ impl SystemRegSpoofer {
             return Err(Box::new(CustomError("Failed to get token information".into())));
         }
         
-        // Get SID from token information
+        
         let token_user = unsafe { &*(buffer.as_ptr() as *const TOKEN_USER) };
         let sid = token_user.User.Sid;
         
-        // Convert SID to string
+        
         let sid_string = Self::sid_to_string(sid)?;
         
-        // Clean up
+        
         unsafe { CloseHandle(token_handle) };
         
         Ok(sid_string)
@@ -138,7 +138,7 @@ impl SystemRegSpoofer {
         let mut rng = rand::thread_rng();
         let mut data = Vec::new();
         
-        // Generate 32-64 random bytes
+        
         let length = rng.gen_range(32..64);
         
         for _ in 0..length {
@@ -153,7 +153,7 @@ impl SystemRegSpoofer {
         
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         
-        // Try to open the key
+        
         let _control_key = match hkcu.open_subkey_with_flags(registry_path, KEY_READ) {
             Ok(key) => key,
             Err(_) => {
@@ -162,9 +162,9 @@ impl SystemRegSpoofer {
             }
         };
         
-        // See if we can read the SystemReg value
+        
         let value_data: Result<Vec<u8>, _> = unsafe {
-            // We need to use unsafe win32 API to read a null-prefixed value name
+            
             let mut handle = std::mem::zeroed();
             let path_utf16: Vec<u16> = registry_path.encode_utf16().chain(std::iter::once(0)).collect();
             
@@ -180,13 +180,13 @@ impl SystemRegSpoofer {
                 return Err(Box::new(CustomError(format!("Failed to open registry key: {}", res))));
             }
             
-            // The SystemReg value has a null byte at the start
-            let name = vec![0, 83, 121, 115, 116, 101, 109, 82, 101, 103, 0]; // "\0SystemReg"
+            
+            let name = vec![0, 83, 121, 115, 116, 101, 109, 82, 101, 103, 0]; 
             
             let mut data_type = 0;
             let mut data_size = 0;
             
-            // First call to get size
+            
             let res = winapi::um::winreg::RegQueryValueExA(
                 handle,
                 name.as_ptr() as *const i8,
@@ -201,7 +201,7 @@ impl SystemRegSpoofer {
                 return Err(Box::new(CustomError(format!("Failed to query value size: {}", res))));
             }
             
-            // Allocate buffer and get data
+            
             let mut buffer = vec![0u8; data_size as usize];
             let res = winapi::um::winreg::RegQueryValueExA(
                 handle,
@@ -221,12 +221,12 @@ impl SystemRegSpoofer {
             }
         };
         
-        // If successful, store the backup
+        
         match value_data {
             Ok(data) => {
                 println!("  Found existing SystemReg value, backing up {} bytes of data", data.len());
                 
-                // Store backup in our config
+                
                 let (config_key, _) = hkcu.create_subkey(r"Software\RobloxHWIDSpoofer\SystemReg")?;
                 config_key.set_raw_value("OriginalData", &winreg::RegValue {
                     bytes: data,
@@ -246,7 +246,7 @@ impl SystemRegSpoofer {
     fn set_special_registry_value(registry_path: &str, data: &[u8]) -> Result<(), Box<dyn Error>> {
         println!("Setting spoofed SystemReg value with null terminator...");
         
-        // We need to use unsafe win32 API to write a null-prefixed value name
+        
         unsafe {
             let mut handle = std::mem::zeroed();
             let path_utf16: Vec<u16> = registry_path.encode_utf16().chain(std::iter::once(0)).collect();
@@ -267,15 +267,15 @@ impl SystemRegSpoofer {
                 return Err(Box::new(CustomError(format!("Failed to create registry key: {}", res))));
             }
             
-            // The SystemReg value has a null byte at the start
-            let name = vec![0, 83, 121, 115, 116, 101, 109, 82, 101, 103, 0]; // "\0SystemReg"
             
-            // Set the value - Fix: Use the constant value for REG_BINARY (3)
+            let name = vec![0, 83, 121, 115, 116, 101, 109, 82, 101, 103, 0]; 
+            
+            
             let res = winapi::um::winreg::RegSetValueExA(
                 handle,
                 name.as_ptr() as *const i8,
                 0,
-                3, // REG_BINARY value
+                3, 
                 data.as_ptr(),
                 data.len() as u32,
             );
@@ -296,22 +296,22 @@ impl SystemRegSpoofer {
         
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         
-        // Create our interception keys
+        
         let (spoof_key, _) = hkcu.create_subkey(r"Software\RobloxHWIDSpoofer\SystemReg")?;
         
-        // Store the SID - Fix: Add borrow operator to convert &str to &String
+        
         spoof_key.set_value("UserSID", &sid.to_string())?;
         
-        // Store our spoofed data
+        
         spoof_key.set_raw_value("SpoofedData", &winreg::RegValue {
             bytes: spoofed_data.to_vec(),
             vtype: REG_BINARY,
         })?;
         
-        // Store the Hyperion prefix string
+        
         spoof_key.set_value("HyperionSystemRegPrefix", &"eOj7IvEHtbPqBn5MLun2")?;
         
-        // Enable SystemReg spoofing in main config
+        
         let parent_key = hkcu.open_subkey_with_flags(r"Software\RobloxHWIDSpoofer", KEY_WRITE)?;
         parent_key.set_value("EnableSystemRegSpoofing", &1u32)?;
         
