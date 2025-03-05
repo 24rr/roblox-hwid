@@ -3,13 +3,30 @@ use rand::Rng;
 use winreg::enums::*;
 use winreg::RegKey;
 
-/// Handles spoofing of monitor EDID (Extended Display Identification Data) to prevent hardware fingerprinting
+/// Handles spoofing of monitor EDID (Extended Display Identification Data) to prevent hardware fingerprinting.
+///
+/// EDID is a data structure that contains information about a computer display, including
+/// manufacturer name, product type, serial number, and other characteristics. Applications
+/// can use this data to identify specific monitors and, by extension, computer systems.
+/// Spoofing this data helps prevent hardware-based tracking.
 pub struct MonitorEdidSpoofer;
 
 impl MonitorEdidSpoofer {
-    /// Main entry point for monitor EDID spoofing
-    /// Modifies the monitor serial numbers stored in the EDID data
-    pub fn spoof() -> Result<()> {
+    /// Main entry point for monitor EDID spoofing.
+    ///
+    /// This method performs the following operations:
+    /// 1. Finds all display devices in the system
+    /// 2. Modifies the EDID data for each display to change the serial number
+    /// 3. Creates an intercept configuration to ensure consistent spoofing
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating whether the operation was successful.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any of the spoofing steps fail.
+    pub fn run() -> Result<()> {
         println!("Spoofing Monitor EDID Information...");
         
         let display_paths = find_display_devices()
@@ -22,12 +39,25 @@ impl MonitorEdidSpoofer {
         create_edid_intercept_config(modified_count)
             .context("Failed to create EDID intercept configuration")?;
         
-        println!("Monitor EDID spoofing complete");
+        println!("[+] Monitor EDID spoofing complete");
         Ok(())
     }
 }
 
-/// Locates all display devices in the registry that may contain EDID data
+/// Locates all display devices in the registry that may contain EDID data.
+///
+/// This function searches the Windows registry for display devices that have
+/// EDID data which can be modified to spoof monitor identification.
+///
+/// # Returns
+///
+/// A `Result` containing a vector of registry paths to display devices.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The display registry key cannot be opened
+/// - Registry enumeration operations fail
 fn find_display_devices() -> Result<Vec<String>> {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     let display_path = r"SYSTEM\CurrentControlSet\Enum\DISPLAY";
@@ -56,7 +86,26 @@ fn find_display_devices() -> Result<Vec<String>> {
     Ok(result)
 }
 
-/// Modifies the EDID data for a specific display device to spoof its serial number
+/// Modifies the EDID data for a specific display device to spoof its serial number.
+///
+/// This function modifies the EDID binary data in the registry to change the
+/// monitor's serial number, effectively spoofing its identity. It also recalculates
+/// the checksum to ensure the EDID data remains valid.
+///
+/// # Arguments
+///
+/// * `display_path` - The registry path to the display device to modify
+///
+/// # Returns
+///
+/// A `Result` indicating whether the operation was successful.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The Device Parameters key cannot be opened
+/// - The EDID value cannot be read or is invalid
+/// - The new EDID value cannot be written to the registry
 fn modify_edid_for_display(display_path: &str) -> Result<()> {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     
@@ -101,7 +150,22 @@ fn modify_edid_for_display(display_path: &str) -> Result<()> {
     Ok(())
 }
 
-/// Creates configuration entries for the EDID interception mechanism
+/// Creates configuration entries for the EDID interception mechanism.
+///
+/// This function sets up registry entries that will be used to intercept and modify
+/// EDID data queries from applications trying to identify the system's monitors.
+///
+/// # Arguments
+///
+/// * `modified_count` - The number of display devices that were successfully modified
+///
+/// # Returns
+///
+/// A `Result` indicating whether the operation was successful.
+///
+/// # Errors
+///
+/// Returns an error if any registry operations fail.
 fn create_edid_intercept_config(modified_count: usize) -> Result<()> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     

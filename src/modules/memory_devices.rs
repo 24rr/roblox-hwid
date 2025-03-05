@@ -4,13 +4,29 @@ use rand::seq::SliceRandom;
 use winreg::enums::*;
 use winreg::RegKey;
 
-/// Handles spoofing of memory devices information (RAM) to prevent hardware fingerprinting
+/// Handles spoofing of memory devices information (RAM) to prevent hardware fingerprinting.
+///
+/// Memory devices such as RAM modules have unique serial numbers that can be used
+/// to identify a computer. This module generates realistic but fake serial numbers
+/// and manufacturer information to help avoid hardware bans.
 pub struct MemoryDevicesSpoofer;
 
 impl MemoryDevicesSpoofer {
-    /// Main entry point for memory device spoofing
-    /// Generates random serials and configures registry entries for RAM modules
-    pub fn spoof() -> Result<()> {
+    /// Main entry point for memory device spoofing.
+    ///
+    /// This method performs the following operations:
+    /// 1. Generates random serial numbers for memory modules
+    /// 2. Sets up registry entries for memory device spoofing
+    /// 3. Adds detailed memory device information with realistic manufacturer details
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating whether the operation was successful.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any of the spoofing steps fail.
+    pub fn run() -> Result<()> {
         println!("Spoofing Memory Device Information...");
         
         let serials = generate_random_serials(4)
@@ -22,16 +38,32 @@ impl MemoryDevicesSpoofer {
         setup_memory_device_info(&serials)
             .context("Failed to setup memory device info")?;
         
-        println!("Memory device information spoofing complete");
+        println!("[+] Memory device information spoofing complete");
         Ok(())
     }
 }
 
-/// Creates a set of random memory module serial numbers with realistic manufacturer prefixes
+/// Creates a set of random memory module serial numbers with realistic manufacturer prefixes.
+///
+/// This function generates serial numbers that mimic those used by actual RAM manufacturers,
+/// starting with recognizable prefixes like "KHX" for Kingston HyperX, "CMK" for Corsair, etc.
+///
+/// # Arguments
+///
+/// * `count` - The number of serial numbers to generate
+///
+/// # Returns
+///
+/// A `Result` containing a vector of generated serial numbers.
+///
+/// # Errors
+///
+/// Returns an error if the generation process fails for any reason.
 fn generate_random_serials(count: usize) -> Result<Vec<String>> {
     let mut rng = rand::thread_rng();
     let mut serials = Vec::with_capacity(count);
     
+    // Common memory manufacturer prefixes
     let prefixes = ["KHX", "CMK", "BLS", "TF", "CT", "HX", "F4", "TD"];
     
     (0..count).for_each(|_| {
@@ -54,7 +86,22 @@ fn generate_random_serials(count: usize) -> Result<Vec<String>> {
     Ok(serials)
 }
 
-/// Configures registry entries for memory device spoofing
+/// Configures registry entries for memory device spoofing.
+///
+/// This function creates registry entries that will be used to intercept and modify
+/// memory device information queries from applications trying to identify the system.
+///
+/// # Arguments
+///
+/// * `serials` - A slice of serial number strings to use for memory devices
+///
+/// # Returns
+///
+/// A `Result` indicating whether the operation was successful.
+///
+/// # Errors
+///
+/// Returns an error if any registry operations fail.
 fn setup_memory_device_spoofing(serials: &[String]) -> Result<()> {
     println!("Setting up memory device registry entries...");
     
@@ -83,7 +130,22 @@ fn setup_memory_device_spoofing(serials: &[String]) -> Result<()> {
     Ok(())
 }
 
-/// Sets up detailed memory device information with realistic manufacturer details
+/// Sets up detailed memory device information with realistic manufacturer details.
+///
+/// This function creates registry entries containing detailed information about
+/// each memory module, including manufacturer, capacity, and speed.
+///
+/// # Arguments
+///
+/// * `serials` - A slice of serial number strings to use for memory devices
+///
+/// # Returns
+///
+/// A `Result` indicating whether the operation was successful.
+///
+/// # Errors
+///
+/// Returns an error if any registry operations fail.
 fn setup_memory_device_info(serials: &[String]) -> Result<()> {
     println!("Setting up memory device information...");
     
@@ -92,6 +154,7 @@ fn setup_memory_device_info(serials: &[String]) -> Result<()> {
     let (memory_info_key, _) = hkcu.create_subkey(r"Software\Microsoft\DeviceManagement\MemoryInfo")
         .context("Failed to create memory info registry key")?;
     
+    // List of common memory manufacturers
     let manufacturers = ["Kingston", "Corsair", "G.Skill", "Crucial", "HyperX"];
     let mut rng = rand::thread_rng();
     

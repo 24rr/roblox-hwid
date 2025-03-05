@@ -6,11 +6,18 @@ use modules::system_uuid::SystemUuidSpoofer;
 use modules::memory_devices::MemoryDevicesSpoofer;
 use modules::monitor_edid::MonitorEdidSpoofer;
 use modules::system_reg::SystemRegSpoofer;
-use std::time::Duration;
-use std::thread;
+use std::io::Write;
 use winreg::enums::*;
 use winreg::RegKey;
 
+/// Main entry point for the Roblox HWID Spoofer application.
+///
+/// This application provides functionality to spoof various hardware identifiers
+/// to help avoid hardware bans. It requires administrator privileges to work properly.
+///
+/// # Errors
+///
+/// Returns an error if any spoofer operations fail.
 fn main() -> Result<()> {
     print_banner();
     
@@ -28,188 +35,229 @@ fn main() -> Result<()> {
             1 => spoof_all().context("Failed to spoof all hardware IDs")?,
             2 => {
                 println!("\n[-] Running System UUID Spoofer");
-                run_system_uuid_spoofer()
-                    .map(|_| println!("[+] System UUID Spoofing Successful"))
-                    .unwrap_or_else(|e| println!("[!] System UUID Spoofing Failed: {}", e));
-                wait_to_continue().context("Failed to wait for user input")?;
+                run_system_uuid_spoofer().context("Failed to spoof System UUID")?;
+                wait_to_continue()?;
             },
             3 => {
                 println!("\n[-] Running Memory Devices Spoofer");
-                run_memory_devices_spoofer()
-                    .map(|_| println!("[+] Memory Devices Spoofing Successful"))
-                    .unwrap_or_else(|e| println!("[!] Memory Devices Spoofing Failed: {}", e));
-                wait_to_continue().context("Failed to wait for user input")?;
+                run_memory_devices_spoofer().context("Failed to spoof Memory Devices")?;
+                wait_to_continue()?;
             },
             4 => {
                 println!("\n[-] Running Monitor EDID Spoofer");
-                run_monitor_edid_spoofer()
-                    .map(|_| println!("[+] Monitor EDID Spoofing Successful"))
-                    .unwrap_or_else(|e| println!("[!] Monitor EDID Spoofing Failed: {}", e));
-                wait_to_continue().context("Failed to wait for user input")?;
+                run_monitor_edid_spoofer().context("Failed to spoof Monitor EDID")?;
+                wait_to_continue()?;
             },
             5 => {
                 println!("\n[-] Running System Registry Spoofer");
-                run_system_reg_spoofer()
-                    .map(|_| println!("[+] System Registry Spoofing Successful"))
-                    .unwrap_or_else(|e| println!("[!] System Registry Spoofing Failed: {}", e));
-                wait_to_continue().context("Failed to wait for user input")?;
+                run_system_reg_spoofer().context("Failed to spoof System Registry")?;
+                wait_to_continue()?;
             },
             6 => {
-                println!("\nExiting. Hardware ID Spoofer closed.");
+                println!("\n[+] Exiting...");
                 break;
             },
-            _ => println!("Invalid option. Please enter a number between 1 and 6."),
+            _ => println!("[!] Invalid option, please try again."),
         }
     }
     
     Ok(())
 }
 
+/// Displays the main menu and gets user selection.
+///
+/// # Returns
+///
+/// A `Result` containing the selected menu option as u32.
+///
+/// # Errors
+///
+/// Returns an error if reading user input fails.
 fn show_menu() -> Result<u32> {
-    println!("\n==== Hardware ID Spoofer Menu ====");
-    println!("1. Spoof All Hardware IDs");
-    println!("2. Spoof System UUID only");
-    println!("3. Spoof Memory Devices only");
-    println!("4. Spoof Monitor EDID only");
-    println!("5. Spoof System Registry only");
-    println!("6. Exit");
-    println!("\nEnter your choice (1-6): ");
+    println!("\n≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡");
+    println!("                    MAIN MENU                          ");
+    println!("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡");
+    println!("[1] Spoof All");
+    println!("[2] Spoof System UUID");
+    println!("[3] Spoof Memory Devices");
+    println!("[4] Spoof Monitor EDID");
+    println!("[5] Spoof System Registry");
+    println!("[6] Exit");
+    println!("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡");
     
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).context("Failed to read user input")?;
+    print!("Enter choice [1-6]: ");
+    io::stdout().flush().unwrap();
     
-    let parsed = input.trim().parse::<u32>().unwrap_or(0);
-    Ok(parsed)
+    let mut choice = String::new();
+    io::stdin().read_line(&mut choice).context("Failed to read user input")?;
+    
+    Ok(choice.trim().parse::<u32>().unwrap_or(0))
 }
 
+/// Executes all spoofing operations sequentially.
+///
+/// # Returns
+///
+/// A `Result` indicating whether all spoofing operations were successful.
+///
+/// # Errors
+///
+/// Returns an error if any spoofing operation fails.
 fn spoof_all() -> Result<()> {
-    println!("\n[+] Beginning HWID spoofing sequence...");
+    println!("\n[-] Running ALL Spoofers");
     
-    let spoofers = [
-        ("System UUID", run_system_uuid_spoofer as fn() -> Result<()>),
-        ("Memory Devices", run_memory_devices_spoofer as fn() -> Result<()>),
-        ("Monitor EDID", run_monitor_edid_spoofer as fn() -> Result<()>),
-        ("System Registry", run_system_reg_spoofer as fn() -> Result<()>),
-    ];
+    println!("\n[1/4] Running System UUID Spoofer");
+    run_system_uuid_spoofer().context("Failed to spoof System UUID")?;
     
-    spoofers.iter().for_each(|(name, spoofer_fn)| {
-        println!("\n[-] Running {} Spoofer", name);
-        
-        spoofer_fn()
-            .map(|_| println!("[+] {} Spoofing Successful", name))
-            .unwrap_or_else(|e| println!("[!] {} Spoofing Failed: {}", name, e));
-        
-        thread::sleep(Duration::from_millis(500));
-    });
+    println!("\n[2/4] Running Memory Devices Spoofer");
+    run_memory_devices_spoofer().context("Failed to spoof Memory Devices")?;
     
-    println!("\n[+] HWID spoofing complete! Your hardware identifiers have been modified.");
-    println!("[*] Roblox will now detect different hardware identifiers on this machine.");
-    println!("[*] Remember that spoofed IDs persist across reboots but may reset with Windows updates.");
+    println!("\n[3/4] Running Monitor EDID Spoofer");
+    run_monitor_edid_spoofer().context("Failed to spoof Monitor EDID")?;
     
-    wait_to_continue().context("Failed to wait for user input")?;
+    println!("\n[4/4] Running System Registry Spoofer");
+    run_system_reg_spoofer().context("Failed to spoof System Registry")?;
+    
+    println!("\n[+] All spoofing operations completed successfully.");
+    
+    wait_to_continue()?;
     Ok(())
 }
 
+/// Sets up the main configuration in the registry.
+///
+/// Creates necessary registry keys and values for the application to function.
+///
+/// # Returns
+///
+/// A `Result` indicating whether the configuration was set up successfully.
+///
+/// # Errors
+///
+/// Returns an error if registry operations fail.
 fn setup_main_config() -> Result<()> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let path = "SOFTWARE\\RobloxHWIDSpoofer";
     
-    let (config_key, _) = hkcu.create_subkey(r"Software\Microsoft\DeviceManagement\SecurityProviders")
-        .context("Failed to create config registry key")?;
+    let (key, disp) = hkcu
+        .create_subkey(path)
+        .context("Failed to create or open registry key")?;
     
-    let prev_run: Option<u32> = config_key.get_value("ConfigVersion").ok();
-    
-    if let Some(version) = prev_run {
-        println!("[*] Detected previous configuration (version {})", version);
-    } else {
-        println!("[*] First-time setup detected, creating new configuration");
-        config_key.set_value("ConfigVersion", &1u32)
-            .context("Failed to set ConfigVersion registry value")?;
-        config_key.set_value("SetupDate", &chrono::Local::now().to_rfc3339())
-            .context("Failed to set SetupDate registry value")?;
+    // Only set default values if the key was newly created
+    if disp == REG_CREATED_NEW_KEY {
+        key.set_value("FirstRun", &1u32)
+            .context("Failed to set FirstRun registry value")?;
+        println!("[+] First run detected, configured default settings");
     }
     
     Ok(())
 }
 
+/// Waits for user input to continue.
+///
+/// # Returns
+///
+/// A `Result` indicating whether the operation was successful.
+///
+/// # Errors
+///
+/// Returns an error if reading user input fails.
 fn wait_to_continue() -> Result<()> {
-    println!("\nPress Enter to continue...");
-    
+    print!("\nPress enter to continue...");
+    io::stdout().flush().unwrap();
     let mut input = String::new();
     io::stdin().read_line(&mut input).context("Failed to read user input")?;
-    
     Ok(())
 }
 
+/// Checks if the program is running with administrator privileges.
+///
+/// # Returns
+///
+/// A boolean indicating whether the program has admin rights.
 fn is_running_as_admin() -> bool {
-    use winapi::um::securitybaseapi::AllocateAndInitializeSid;
-    use winapi::um::securitybaseapi::CheckTokenMembership;
-    use winapi::um::winnt::{SECURITY_NT_AUTHORITY, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS};
-    use winapi::um::winnt::SID_IDENTIFIER_AUTHORITY;
+    use std::process::Command;
     
-    unsafe {
-        let mut authority = SID_IDENTIFIER_AUTHORITY {
-            Value: SECURITY_NT_AUTHORITY
-        };
-        let mut sid = std::ptr::null_mut();
-        
-        // Initialize SID
-        let result = AllocateAndInitializeSid(
-            &mut authority,
-            2,
-            SECURITY_BUILTIN_DOMAIN_RID,
-            DOMAIN_ALIAS_RID_ADMINS,
-            0, 0, 0, 0, 0, 0,
-            &mut sid
-        );
-        
-        if result == 0 {
-            return false;
-        }
-        
-        // Check if user is a member of the admin group
-        let mut is_member = 0;
-        let member_check = CheckTokenMembership(std::ptr::null_mut(), sid, &mut is_member);
-        
-        // Free allocated SID
-        winapi::um::securitybaseapi::FreeSid(sid);
-        
-        member_check != 0 && is_member != 0
+    // Try to execute a command that requires admin privileges
+    // If it works, we're running as admin
+    match Command::new("cmd.exe")
+        .args(&["/C", "net session >nul 2>&1"])
+        .output()
+    {
+        Ok(output) => output.status.success(),
+        Err(_) => false,
     }
 }
 
+/// Waits for user to press a key before exiting.
+///
+/// Used when the program cannot continue due to lack of admin privileges.
 fn wait_for_exit() {
-    println!("\nPress Enter to exit...");
+    println!("\nPress any key to exit...");
     let mut input = String::new();
-    let _ = std::io::stdin().read_line(&mut input);
+    let _ = io::stdin().read_line(&mut input);
 }
 
+/// Prints the application banner/logo.
 fn print_banner() {
-    println!("╔═════════════════════════════════════════════════╗");
-    println!("║                                                 ║");
-    println!("║  Hardware ID Spoofer Tool for Roblox            ║");
-    println!("║  Version 0.1.0                                  ║");
-    println!("║                                                 ║");
-    println!("║  [Security Notice]                              ║");
-    println!("║  This tool modifies system registry values.     ║");
-    println!("║  Use at your own risk. For educational          ║");
-    println!("║  purposes only.                                 ║");
-    println!("║                                                 ║");
-    println!("╚═════════════════════════════════════════════════╝");
-    println!("");
+    println!("
+██████╗  ██████╗ ██████╗ ██╗      ██████╗ ██╗  ██╗    ██╗  ██╗██╗    ██╗██╗██████╗     ███████╗██████╗  ██████╗  ██████╗ ███████╗███████╗██████╗ 
+██╔══██╗██╔═══██╗██╔══██╗██║     ██╔═══██╗╚██╗██╔╝    ██║  ██║██║    ██║██║██╔══██╗    ██╔════╝██╔══██╗██╔═══██╗██╔═══██╗██╔════╝██╔════╝██╔══██╗
+██████╔╝██║   ██║██████╔╝██║     ██║   ██║ ╚███╔╝     ███████║██║ █╗ ██║██║██║  ██║    ███████╗██████╔╝██║   ██║██║   ██║█████╗  █████╗  ██████╔╝
+██╔══██╗██║   ██║██╔══██╗██║     ██║   ██║ ██╔██╗     ██╔══██║██║███╗██║██║██║  ██║    ╚════██║██╔═══╝ ██║   ██║██║   ██║██╔══╝  ██╔══╝  ██╔══██╗
+██║  ██║╚██████╔╝██████╔╝███████╗╚██████╔╝██╔╝ ██╗    ██║  ██║╚███╔███╔╝██║██████╔╝    ███████║██║     ╚██████╔╝╚██████╔╝██║     ███████╗██║  ██║
+╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═╝    ╚═╝  ╚═╝ ╚══╝╚══╝ ╚═╝╚═════╝     ╚══════╝╚═╝      ╚═════╝  ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═╝
+    ");
 }
 
+/// Runs the System UUID spoofing operation.
+///
+/// # Returns
+///
+/// A `Result` indicating whether the operation was successful.
+///
+/// # Errors
+///
+/// Returns an error if the spoofing operation fails.
 fn run_system_uuid_spoofer() -> Result<()> {
-    SystemUuidSpoofer::spoof().context("System UUID spoofing failed")
+    SystemUuidSpoofer::run()
 }
 
+/// Runs the Memory Devices spoofing operation.
+///
+/// # Returns
+///
+/// A `Result` indicating whether the operation was successful.
+///
+/// # Errors
+///
+/// Returns an error if the spoofing operation fails.
 fn run_memory_devices_spoofer() -> Result<()> {
-    MemoryDevicesSpoofer::spoof().context("Memory devices spoofing failed")
+    MemoryDevicesSpoofer::run()
 }
 
+/// Runs the Monitor EDID spoofing operation.
+///
+/// # Returns
+///
+/// A `Result` indicating whether the operation was successful.
+///
+/// # Errors
+///
+/// Returns an error if the spoofing operation fails.
 fn run_monitor_edid_spoofer() -> Result<()> {
-    MonitorEdidSpoofer::spoof().context("Monitor EDID spoofing failed")
+    MonitorEdidSpoofer::run()
 }
 
+/// Runs the System Registry spoofing operation.
+///
+/// # Returns
+///
+/// A `Result` indicating whether the operation was successful.
+///
+/// # Errors
+///
+/// Returns an error if the spoofing operation fails.
 fn run_system_reg_spoofer() -> Result<()> {
-    SystemRegSpoofer::spoof().context("System registry spoofing failed")
+    SystemRegSpoofer::run()
 }

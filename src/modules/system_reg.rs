@@ -7,13 +7,29 @@ use winreg::enums::*;
 use winreg::RegKey;
 use std::ptr;
 
-/// Handles spoofing of system registry information to prevent hardware identification
+/// Handles spoofing of system registry information to prevent hardware identification.
+///
+/// The Windows registry contains various identifiers and system information that can
+/// be used to track or identify a system. This module modifies specific registry values
+/// to help prevent hardware fingerprinting and tracking by applications.
 pub struct SystemRegSpoofer;
 
 impl SystemRegSpoofer {
-    /// Main entry point for system registry spoofing
-    /// Generates and applies random registry data to prevent tracking
-    pub fn spoof() -> Result<()> {
+    /// Main entry point for system registry spoofing.
+    ///
+    /// This method performs the following operations:
+    /// 1. Retrieves or generates the current user's Security Identifier (SID)
+    /// 2. Generates random data to use in spoofed registry entries
+    /// 3. Creates or updates registry keys with the spoofed data
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating whether the operation was successful.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any of the spoofing steps fail.
+    pub fn run() -> Result<()> {
         println!("Spoofing System Registry Information...");
         
         let user_sid = get_current_user_sid()
@@ -27,12 +43,23 @@ impl SystemRegSpoofer {
         create_spoofed_registry(&user_sid, &random_data)
             .context("Failed to create spoofed registry")?;
         
-        println!("System registry information spoofing complete");
+        println!("[+] System registry information spoofing complete");
         Ok(())
     }
 }
 
-/// Retrieves or generates the current user's Security Identifier (SID)
+/// Retrieves or generates the current user's Security Identifier (SID).
+///
+/// This function attempts to extract the user's SID from the registry.
+/// If unable to retrieve it, a suitable random SID will be generated instead.
+///
+/// # Returns
+///
+/// A `Result` containing the user SID as a string.
+///
+/// # Errors
+///
+/// Returns an error if registry operations fail and a SID cannot be determined.
 fn get_current_user_sid() -> Result<String> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let key = hkcu.open_subkey("Software")
@@ -44,7 +71,26 @@ fn get_current_user_sid() -> Result<String> {
     Ok(sid_str)
 }
 
-/// Extracts SID information from registry key or generates a random one
+/// Extracts SID information from registry key or generates a random one.
+///
+/// This function attempts to extract the SID from a registry key. If unsuccessful,
+/// it generates a random SID that follows the Windows security identifier format.
+///
+/// # Arguments
+///
+/// * `_key` - Reference to a registry key from which to attempt SID extraction
+///
+/// # Returns
+///
+/// A `Result` containing the SID as a string.
+///
+/// # Errors
+///
+/// Returns an error if SID extraction fails and a random SID cannot be generated.
+///
+/// # Safety
+///
+/// Contains an unsafe block that uses Windows API functions to attempt SID lookup.
 fn extract_sid_from_key(_key: &RegKey) -> Result<String> {
     // Generate a random SID with format matching Windows security identifiers
     // This is outside the unsafe block since it doesn't use any unsafe code
@@ -85,7 +131,19 @@ fn extract_sid_from_key(_key: &RegKey) -> Result<String> {
     Ok(sid_str)
 }
 
-/// Generates random binary data for registry spoofing
+/// Generates random binary data for registry spoofing.
+///
+/// This function creates a byte vector containing structured random data
+/// that appears legitimate when viewed in registry editors. It includes
+/// signature bytes and null-terminated strings to mimic real registry data.
+///
+/// # Returns
+///
+/// A `Result` containing a vector of bytes with the random data.
+///
+/// # Errors
+///
+/// Returns an error if random data generation fails.
 fn generate_random_data() -> Result<Vec<u8>> {
     let mut rng = rand::thread_rng();
     
@@ -114,7 +172,25 @@ fn generate_random_data() -> Result<Vec<u8>> {
     Ok(data)
 }
 
-/// Creates or updates registry keys with spoofed data
+/// Creates or updates registry keys with spoofed data.
+///
+/// This function creates registry entries with spoofed security data,
+/// including a special anti-forensic technique using null characters in
+/// registry value names to make them difficult to view or modify with
+/// standard tools.
+///
+/// # Arguments
+///
+/// * `user_sid` - The user's Security Identifier (SID) as a string
+/// * `data` - Binary data to store in the registry
+///
+/// # Returns
+///
+/// A `Result` indicating whether the operation was successful.
+///
+/// # Errors
+///
+/// Returns an error if any registry operations fail.
 fn create_spoofed_registry(user_sid: &str, data: &[u8]) -> Result<()> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     
